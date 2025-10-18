@@ -2630,22 +2630,98 @@ static ssize_t usb_typec_compliant_show(struct class *c,
 }
 static CLASS_ATTR_RO(usb_typec_compliant);
 
-static ssize_t usb_real_type_show(struct class *c,
-				struct class_attribute *attr, char *buf)
+static ssize_t fastcharge_enable_store(struct class *c,
+                    struct class_attribute *attr,
+                    const char *buf, size_t count)
 {
-	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
-						battery_class);
-	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_USB];
-	int rc;
+    struct battery_chg_dev *bcdev =
+        container_of(c, struct battery_chg_dev, battery_class);
+    int mode;
+    int rc;
 
-	rc = read_property_id(bcdev, pst, USB_REAL_TYPE);
-	if (rc < 0)
-		return rc;
+    rc = kstrtoint(buf, 10, &mode);
+    if (rc)
+        return -EINVAL;
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			get_usb_type_name(pst->prop[USB_REAL_TYPE]));
+    switch (mode) {
+    case 0:
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SMART_CHG, 0x8);
+        if (rc < 0)
+            return rc;
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SPORT_MODE, 0);
+        if (rc < 0)
+            return rc;
+        break;
+    case 1:
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SMART_CHG, 0x9);
+        if (rc < 0)
+            return rc;
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SPORT_MODE, 0);
+        if (rc < 0)
+            return rc;
+        break;
+    case 2:
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SMART_CHG, 0x9);
+        if (rc < 0)
+            return rc;
+        rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_SPORT_MODE, 1);
+        if (rc < 0)
+            return rc;
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    return count;
 }
-static CLASS_ATTR_RO(usb_real_type);
+
+static ssize_t fastcharge_enable_show(struct class *c,
+                    struct class_attribute *attr, char *buf)
+{
+    struct battery_chg_dev *bcdev =
+        container_of(c, struct battery_chg_dev, battery_class);
+    struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+    int rc;
+    u32 sport_mode, smart_chg;
+    int mode;
+
+    rc = read_property_id(bcdev, pst, XM_PROP_SPORT_MODE);
+    if (rc < 0)
+        return rc;
+    sport_mode = pst->prop[XM_PROP_SPORT_MODE];
+
+    rc = read_property_id(bcdev, pst, XM_PROP_SMART_CHG);
+    if (rc < 0)
+        return rc;
+    smart_chg = pst->prop[XM_PROP_SMART_CHG];
+
+    if (sport_mode == 1 && smart_chg == 8)
+        mode = 2;
+    else if (sport_mode == 0 && (smart_chg == 0x9 || smart_chg == 9))
+        mode = 1;
+    else
+        mode = 0;
+
+    return scnprintf(buf, PAGE_SIZE, "%d\n", mode);
+}
+
+static CLASS_ATTR_RW(fastcharge_enable);
+
+QTI_CHARGER_RO_SHOW(usb_typec_compliant, PSY_TYPE_USB, USB_TYPEC_COMPLIANT);
+
+QTI_CHARGER_RO_SHOW(usb_num_ports, PSY_TYPE_USB, USB_NUM_PORTS);
+
+QTI_CHARGER_TYPE_RO_SHOW(usb_real_type, usb, PSY_TYPE_USB, USB_REAL_TYPE);
+
+QTI_CHARGER_RO_SHOW(usb_2_typec_compliant, PSY_TYPE_USB_2, USB_TYPEC_COMPLIANT);
+
+QTI_CHARGER_TYPE_RO_SHOW(usb_2_real_type, usb, PSY_TYPE_USB_2, USB_REAL_TYPE);
 
 static ssize_t restrict_cur_store(struct class *c, struct class_attribute *attr,
 				const char *buf, size_t count)
