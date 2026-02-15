@@ -6,7 +6,7 @@
 ccflags-y += -I $(srctree)/$(src)
 
 ifeq ($(shell test $(CONFIG_CLANG_VERSION) -ge 210000 2>/dev/null; echo $$?),0)
-ccflags-y += -Wno-uninitialized-const-pointer
+ccflags-y += -Wno-uninitialized-const-reference
 endif
 
 KVM=../../../virt/kvm
@@ -30,5 +30,5 @@ kvm-y := $(KVM)/kvm_main.o $(KVM)/coalesced_mmio.o $(KVM)/eventfd.o \
 
 kvm-$(CONFIG_HW_PERF_EVENTS)  += pmu-emul.o
 
-# Work around a false positive Clang 22 -Wuninitialized-const-pointer warning
-CFLAGS_sys_regs.o := $(call cc-disable-warning, uninitialized-const-pointer)
+# Work around a false positive Clang 22 -Wuninitialized-const-reference warning
+CFLAGS_sys_regs.o := $(call cc-disable-warning, uninitialized-const-reference)
