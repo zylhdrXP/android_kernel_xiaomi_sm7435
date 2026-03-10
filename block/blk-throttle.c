@@ -15,21 +15,21 @@
 #include "blk-cgroup-rwstat.h"
 
 /* Max dispatch from a group in 1 round */
-#define THROTL_GRP_QUANTUM 8
+#define THROTL_GRP_QUANTUM 16
 
 /* Total max dispatch from all groups in one round */
-#define THROTL_QUANTUM 32
+#define THROTL_QUANTUM 64
 
 /* Throttling is performed over a slice and after that slice is renewed */
 #define DFL_THROTL_SLICE_HD (HZ / 10)
-#define DFL_THROTL_SLICE_SSD (HZ / 50)
+#define DFL_THROTL_SLICE_SSD (HZ / 100)
 #define MAX_THROTL_SLICE (HZ)
 #define MAX_IDLE_TIME (5L * 1000 * 1000) /* 5 s */
 #define MIN_THROTL_BPS (320 * 1024)
 #define MIN_THROTL_IOPS (10)
-#define DFL_LATENCY_TARGET (-1L)
+#define DFL_LATENCY_TARGET (1000L) /* 1ms */    /* default (-1L) */
 #define DFL_IDLE_THRESHOLD (0)
-#define DFL_HD_BASELINE_LATENCY (4000L) /* 4ms */
+#define DFL_HD_BASELINE_LATENCY (2000L) /* 4ms */
 #define LATENCY_FILTERED_SSD (0)
 /*
  * For HD, very small latency comes from sequential IO. Such IO is helpless to
@@ -2216,8 +2216,10 @@ bool blk_throtl_bio(struct bio *bio)
 	rcu_read_lock();
 
 	/* see throtl_charge_bio() */
-	if (bio_flagged(bio, BIO_THROTTLED))
-		goto out;
+	if (bio_flagged(bio, BIO_THROTTLED)) {
+		rcu_read_unlock();
+		return false;
+	}
 
 	if (!cgroup_subsys_on_dfl(io_cgrp_subsys)) {
 		blkg_rwstat_add(&tg->stat_bytes, bio->bi_opf,
@@ -2225,8 +2227,10 @@ bool blk_throtl_bio(struct bio *bio)
 		blkg_rwstat_add(&tg->stat_ios, bio->bi_opf, 1);
 	}
 
-	if (!tg->has_rules[rw])
-		goto out;
+	if (!tg->has_rules[rw]) {
+		rcu_read_unlock();
+		return false;
+	}
 
 	spin_lock_irq(&q->queue_lock);
 
@@ -2310,14 +2314,14 @@ again:
 	}
 
 out_unlock:
-	spin_unlock_irq(&q->queue_lock);
-out:
 	bio_set_flag(bio, BIO_THROTTLED);
 
 #ifdef CONFIG_BLK_DEV_THROTTLING_LOW
 	if (throttled || !td->track_bio_latency)
 		bio->bi_issue.value |= BIO_ISSUE_THROTL_SKIP_LATENCY;
 #endif
+	spin_unlock_irq(&q->queue_lock);
+
 	rcu_read_unlock();
 	return throttled;
 }

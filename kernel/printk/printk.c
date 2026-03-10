@@ -63,6 +63,10 @@
 #include "braille.h"
 #include "internal.h"
 
+#ifdef CONFIG_SECURITY
+extern uint __read_mostly disable_audit_log;
+#endif
+
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
 	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
@@ -707,8 +711,17 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	size_t len = iov_iter_count(from);
 	ssize_t ret = len;
 
+	/* Don't allow userspace to write to /dev/kmesg */
+	return len;
+
 	if (!user || len > LOG_LINE_MAX)
 		return -EINVAL;
+
+	/* Ignore healthd, bpfloader, and BpfMonitor kmsg */
+	if (!strcmp(current->comm, "health@2.1-serv") ||
+	    !strcmp(current->comm, "bpfloader") ||
+	    !strcmp(current->comm, "BpfMonitor"))
+		return ret;
 
 	/* Ignore when user logging is disabled. */
 	if (devkmsg_log & DEVKMSG_LOG_MASK_OFF)
@@ -752,10 +765,23 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 			endp++;
 			len -= endp - line;
 			line = endp;
+			if (strstr(line, "healthd") ||
+				strncmp(line, "logd: Skipping", sizeof("logd: Skipping")))
+				return ret;
 		}
 	}
 
+	if (unlikely(strncmp(line, "healthd:", strlen("healthd:")) == 0))
+		goto skip_write;
+
+#ifdef CONFIG_SECURITY
+	if (disable_audit_log)
+		if (unlikely(strncmp(line, "SELinux: avc:", strlen("SELinux: avc:")) == 0))
+			goto skip_write;
+#endif
+
 	devkmsg_emit(facility, level, "%s", line);
+skip_write:
 	kfree(buf);
 	return ret;
 }
@@ -1993,6 +2019,11 @@ int vprintk_store(int facility, int level,
 	 */
 	text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
 
+	if (unlikely(strstr(text, "[mi_disp") != NULL) ||
+	    unlikely(strstr(text, "[drm") != NULL) ||
+	    unlikely(strncmp(text, "healthd:", strlen("healthd:")) == 0))
+		return 0;
+
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
 		text_len--;
@@ -2315,7 +2346,7 @@ void suspend_console(void)
 {
 	if (!console_suspend_enabled)
 		return;
-	pr_info("Suspending console(s) (use no_console_suspend to debug)\n");
+
 	console_lock();
 	console_suspended = 1;
 	up_console_sem();

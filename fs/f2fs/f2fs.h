@@ -1778,9 +1778,6 @@ struct f2fs_sb_info {
 
 	struct workqueue_struct *post_read_wq;	/* post read workqueue */
 
-	struct kmem_cache *inline_xattr_slab;	/* inline xattr entry */
-	unsigned int inline_xattr_slab_size;	/* default inline xattr slab size */
-
 	/* For reclaimed segs statistics per each GC mode */
 	unsigned int gc_segment_mode;		/* GC state for reclaimed segments */
 	unsigned int gc_reclaimed_segs[MAX_GC_MODE];	/* Reclaimed segs for each mode */
@@ -2710,7 +2707,7 @@ static inline void f2fs_copy_page(struct page *src, struct page *dst)
 	char *src_kaddr = kmap(src);
 	char *dst_kaddr = kmap(dst);
 
-	memcpy(dst_kaddr, src_kaddr, PAGE_SIZE);
+	copy_page(dst_kaddr, src_kaddr);
 	kunmap(dst);
 	kunmap(src);
 }

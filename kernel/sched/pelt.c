@@ -28,9 +28,23 @@
 #include "sched.h"
 #include "pelt.h"
 
+#if IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_8)
+int pelt_load_avg_period = PELT8_LOAD_AVG_PERIOD;
+int pelt_load_avg_max = PELT8_LOAD_AVG_MAX;
+const u32 *pelt_runnable_avg_yN_inv = pelt8_runnable_avg_yN_inv;
+#elif IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_12)
+int pelt_load_avg_period = PELT12_LOAD_AVG_PERIOD;
+int pelt_load_avg_max = PELT12_LOAD_AVG_MAX;
+const u32 *pelt_runnable_avg_yN_inv = pelt12_runnable_avg_yN_inv;
+#elif IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_16)
+int pelt_load_avg_period = PELT16_LOAD_AVG_PERIOD;
+int pelt_load_avg_max = PELT16_LOAD_AVG_MAX;
+const u32 *pelt_runnable_avg_yN_inv = pelt16_runnable_avg_yN_inv;
+#elif IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_DEFAULT) || IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_32)
 int pelt_load_avg_period = PELT32_LOAD_AVG_PERIOD;
 int pelt_load_avg_max = PELT32_LOAD_AVG_MAX;
 const u32 *pelt_runnable_avg_yN_inv = pelt32_runnable_avg_yN_inv;
+#endif
 
 int get_pelt_halflife(void)
 {
@@ -48,6 +62,18 @@ static int __set_pelt_halflife(void *data)
 		pelt_load_avg_period = PELT8_LOAD_AVG_PERIOD;
 		pelt_load_avg_max = PELT8_LOAD_AVG_MAX;
 		pelt_runnable_avg_yN_inv = pelt8_runnable_avg_yN_inv;
+		pr_info("PELT half life is set to %dms\n", num);
+		break;
+	case PELT12_LOAD_AVG_PERIOD:
+		pelt_load_avg_period = PELT12_LOAD_AVG_PERIOD;
+		pelt_load_avg_max = PELT12_LOAD_AVG_MAX;
+		pelt_runnable_avg_yN_inv = pelt12_runnable_avg_yN_inv;
+		pr_info("PELT half life is set to %dms\n", num);
+		break;
+	case PELT16_LOAD_AVG_PERIOD:
+		pelt_load_avg_period = PELT16_LOAD_AVG_PERIOD;
+		pelt_load_avg_max = PELT16_LOAD_AVG_MAX;
+		pelt_runnable_avg_yN_inv = pelt16_runnable_avg_yN_inv;
 		pr_info("PELT half life is set to %dms\n", num);
 		break;
 	case PELT32_LOAD_AVG_PERIOD:
@@ -71,6 +97,7 @@ int set_pelt_halflife(int num)
 }
 EXPORT_SYMBOL_GPL(set_pelt_halflife);
 
+#if IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_DEFAULT)
 static int __init set_pelt(char *str)
 {
 	int rc, num;
@@ -86,6 +113,7 @@ static int __init set_pelt(char *str)
 }
 
 early_param("pelt", set_pelt);
+#endif
 
 /*
  * Approximate:
@@ -531,50 +559,3 @@ int update_irq_load_avg(struct rq *rq, u64 running)
 	return ret;
 }
 #endif
-
-#include <trace/hooks/sched.h>
-DEFINE_PER_CPU(u64, clock_task_mult);
-
-unsigned int sysctl_sched_pelt_multiplier = 1;
-__read_mostly unsigned int sched_pelt_lshift;
-
-int sched_pelt_multiplier(struct ctl_table *table, int write, void *buffer,
-			  size_t *lenp, loff_t *ppos)
-{
-	static DEFINE_MUTEX(mutex);
-	unsigned int old;
-	int ret;
-
-	mutex_lock(&mutex);
-
-	old = sysctl_sched_pelt_multiplier;
-	ret = proc_dointvec(table, write, buffer, lenp, ppos);
-	if (ret)
-		goto undo;
-	if (!write)
-		goto done;
-
-	trace_android_vh_sched_pelt_multiplier(old, sysctl_sched_pelt_multiplier, &ret);
-	if (ret)
-		goto undo;
-
-	switch (sysctl_sched_pelt_multiplier)  {
-	case 1:
-		fallthrough;
-	case 2:
-		fallthrough;
-	case 4:
-		WRITE_ONCE(sched_pelt_lshift,
-			   sysctl_sched_pelt_multiplier >> 1);
-		goto done;
-	default:
-		ret = -EINVAL;
-	}
-
-undo:
-	sysctl_sched_pelt_multiplier = old;
-done:
-	mutex_unlock(&mutex);
-
-	return ret;
-}

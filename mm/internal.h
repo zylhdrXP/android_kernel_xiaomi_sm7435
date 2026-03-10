@@ -269,6 +269,11 @@ struct compact_control {
 	bool alloc_contig;		/* alloc_contig_range allocation */
 };
 
+struct compact_control_ext {
+	struct compact_control *cc;
+	unsigned int nr_migrate_file_pages;	/* Number of file pages to migrate */
+};
+
 /*
  * Used in direct compaction when a page should be taken from the freelists
  * immediately when one is created during the free path.
@@ -285,7 +290,7 @@ unsigned long
 isolate_migratepages_range(struct compact_control *cc,
 			   unsigned long low_pfn, unsigned long end_pfn);
 int find_suitable_fallback(struct free_area *area, unsigned int order,
-			int migratetype, bool only_stealable, bool *can_steal);
+			int migratetype, bool only_stealable, bool *can_steal, unsigned int start_order);
 
 #endif
 

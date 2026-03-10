@@ -36,6 +36,7 @@
 #include <uapi/linux/sched/types.h>
 
 #include <linux/binfmts.h>
+#include <linux/bitops.h>
 #include <linux/blkdev.h>
 #include <linux/compat.h>
 #include <linux/context_tracking.h>
@@ -1192,23 +1193,6 @@ static inline u64 rq_clock_task(struct rq *rq)
 	return rq->clock_task;
 }
 
-#ifdef CONFIG_SMP
-DECLARE_PER_CPU(u64, clock_task_mult);
-
-static inline u64 rq_clock_task_mult(struct rq *rq)
-{
-	lockdep_assert_held(&rq->lock);
-	assert_clock_updated(rq);
-
-	return per_cpu(clock_task_mult, cpu_of(rq));
-}
-#else
-static inline u64 rq_clock_task_mult(struct rq *rq)
-{
-	return rq_clock_task(rq);
-}
-#endif
-
 /**
  * By default the decay is the default pelt decay period.
  * The decay shift can change the decay period in
@@ -1517,7 +1501,6 @@ struct sched_group_capacity {
 	unsigned long		capacity;
 	unsigned long		min_capacity;		/* Min per-CPU capacity in group */
 	unsigned long		max_capacity;		/* Max per-CPU capacity in group */
-	unsigned long		next_update;
 	int			imbalance;		/* XXX unrelated to capacity but shared group state */
 
 #ifdef CONFIG_SCHED_DEBUG

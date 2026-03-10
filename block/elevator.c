@@ -628,8 +628,10 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
 	if (q->nr_hw_queues != 1)
 		return NULL;
 
-	return elevator_get(q, "mq-deadline", false);
+	return elevator_get(q, "ssg", false);
 }
+
+bool task_is_booster(struct task_struct *tsk);
 
 /*
  * Get the first elevator providing the features required by the request queue.
@@ -640,6 +642,10 @@ static struct elevator_type *elevator_get_by_features(struct request_queue *q)
 	struct elevator_type *e, *found = NULL;
 
 	spin_lock(&elv_list_lock);
+
+	/* Forbid init from changing I/O scheduler by default */
+	if (task_is_booster(current))
+		return NULL;
 
 	list_for_each_entry(e, &elv_list, list) {
 		if (elv_support_features(e->elevator_features,
@@ -675,7 +681,15 @@ void elevator_init_mq(struct request_queue *q)
 	if (unlikely(q->elevator))
 		return;
 
-	if (!q->required_elevator_features)
+	if (IS_ENABLED(CONFIG_BFQ_DEFAULT)) {
+		e = elevator_get(q, "bfq", false);
+	} else if (IS_ENABLED(CONFIG_MQ_KYBER_DEFAULT)) {
+		e = elevator_get(q, "kyber", false);
+	} else if (IS_ENABLED(CONFIG_MQ_DEADLINE_DEFAULT)) {
+		e = elevator_get(q, "mq-deadline", false);
+	} else if (IS_ENABLED(CONFIG_MQ_SSG_DEFAULT)) {
+		e = elevator_get(q, "ssg", false);
+	} else if (!q->required_elevator_features)
 		e = elevator_get_default(q);
 	else
 		e = elevator_get_by_features(q);
@@ -756,10 +770,15 @@ static int __elevator_change(struct request_queue *q, const char *name)
 	return elevator_switch(q, e);
 }
 
+bool task_is_booster(struct task_struct *tsk);
+
 ssize_t elv_iosched_store(struct request_queue *q, const char *name,
 			  size_t count)
 {
 	int ret;
+
+	if (task_is_booster(current))
+		return count;
 
 	if (!elv_support_iosched(q))
 		return count;

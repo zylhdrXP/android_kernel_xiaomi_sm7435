@@ -472,8 +472,13 @@ static ssize_t decompress(struct mount_info *mi,
 
 	switch (alg) {
 	case INCFS_BLOCK_COMPRESSED_LZ4:
+#if defined(CONFIG_ARM64) && defined(CONFIG_KERNEL_MODE_NEON)
+		result = LZ4_arm64_decompress_safe(src.data, dst.data, src.len,
+				           dst.len, false);
+#else
 		result = LZ4_decompress_safe(src.data, dst.data, src.len,
 					     dst.len);
+#endif
 		if (result < 0)
 			return -EBADMSG;
 		return result;
@@ -661,7 +666,7 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 	++head->current_record_no;
 
 	spin_unlock(&log->rl_lock);
-	schedule_delayed_work(&log->ml_wakeup_work, msecs_to_jiffies(16));
+	queue_delayed_work(system_power_efficient_wq, &log->ml_wakeup_work, msecs_to_jiffies(16));
 }
 
 static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,

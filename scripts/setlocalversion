@@ -64,6 +64,13 @@ scm_version()
 	# Check for git and a git repo.
 	if head=$(git rev-parse --verify HEAD 2>/dev/null); then
 
+		# Get commit sha, leave.
+		if test "$CONFIG_LOCALVERSION_SHA" = "y"; then
+			last_commit=$(git rev-parse --verify --short=8 HEAD)
+			printf '%s' "/$last_commit"
+			return
+		fi
+
 		if [ -n "$android_release" ] && [ -n "$kmi_generation" ]; then
 			printf '%s' "-$android_release-$kmi_generation"
 		elif [ -n "$android_release" ]; then
@@ -105,19 +112,6 @@ scm_version()
 		# Is this git on svn?
 		if git config --get svn-remote.svn.url >/dev/null; then
 			printf -- '-svn%s' "$(git svn find-rev $head)"
-		fi
-
-		# Check for uncommitted changes.
-		# First, with git-status, but --no-optional-locks is only
-		# supported in git >= 2.14, so fall back to git-diff-index if
-		# it fails. Note that git-diff-index does not refresh the
-		# index, so it may give misleading results. See
-		# git-update-index(1), git-diff-index(1), and git-status(1).
-		if {
-			git --no-optional-locks status -uno --porcelain 2>/dev/null ||
-			git diff-index --name-only HEAD
-		} | grep -qvE '^(.. )?scripts/package'; then
-			printf '%s' -dirty
 		fi
 
 		# All done with git
@@ -210,7 +204,6 @@ else
 	# LOCALVERSION= is not specified
 	if test "${LOCALVERSION+set}" != "set"; then
 		scm=$(scm_version --short)
-		res="$res${scm:++}"
 	fi
 fi
 
