@@ -2613,23 +2613,6 @@ static ssize_t wireless_type_show(struct class *c, struct class_attribute *attr,
 static CLASS_ATTR_RO(wireless_type);
 #endif
 
-static ssize_t usb_typec_compliant_show(struct class *c,
-				struct class_attribute *attr, char *buf)
-{
-	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
-						battery_class);
-	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_USB];
-	int rc;
-
-	rc = read_property_id(bcdev, pst, USB_TYPEC_COMPLIANT);
-	if (rc < 0)
-		return rc;
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n",
-			(int)pst->prop[USB_TYPEC_COMPLIANT]);
-}
-static CLASS_ATTR_RO(usb_typec_compliant);
-
 static ssize_t fastcharge_enable_store(struct class *c,
                     struct class_attribute *attr,
                     const char *buf, size_t count)
@@ -2713,15 +2696,47 @@ static ssize_t fastcharge_enable_show(struct class *c,
 
 static CLASS_ATTR_RW(fastcharge_enable);
 
+/* Macro definition to generate sysfs charger attributes */
+#define QTI_CHARGER_RO_SHOW(_name, _type, _prop) \
+static ssize_t _name##_show(struct class *c, \
+				struct class_attribute *attr, char *buf) \
+{ \
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev, \
+						battery_class); \
+	struct psy_state *pst = &bcdev->psy_list[_type]; \
+	int rc; \
+	rc = read_property_id(bcdev, pst, _prop); \
+	if (rc < 0) \
+		return rc; \
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[_prop]); \
+} \
+static CLASS_ATTR_RO(_name)
+
+#define QTI_CHARGER_TYPE_RO_SHOW(_name, _str_type, _type, _prop) \
+static ssize_t _name##_show(struct class *c, \
+				struct class_attribute *attr, char *buf) \
+{ \
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev, \
+						battery_class); \
+	struct psy_state *pst = &bcdev->psy_list[_type]; \
+	int rc; \
+	rc = read_property_id(bcdev, pst, _prop); \
+	if (rc < 0) \
+		return rc; \
+	return scnprintf(buf, PAGE_SIZE, "%s\n", \
+			get_##_str_type##_type_name(pst->prop[_prop])); \
+} \
+static CLASS_ATTR_RO(_name)
+
 QTI_CHARGER_RO_SHOW(usb_typec_compliant, PSY_TYPE_USB, USB_TYPEC_COMPLIANT);
 
-QTI_CHARGER_RO_SHOW(usb_num_ports, PSY_TYPE_USB, USB_NUM_PORTS);
+/* QTI_CHARGER_RO_SHOW(usb_num_ports, PSY_TYPE_USB, USB_NUM_PORTS); */
 
 QTI_CHARGER_TYPE_RO_SHOW(usb_real_type, usb, PSY_TYPE_USB, USB_REAL_TYPE);
 
-QTI_CHARGER_RO_SHOW(usb_2_typec_compliant, PSY_TYPE_USB_2, USB_TYPEC_COMPLIANT);
+/* QTI_CHARGER_RO_SHOW(usb_2_typec_compliant, PSY_TYPE_USB_2, USB_TYPEC_COMPLIANT);
 
-QTI_CHARGER_TYPE_RO_SHOW(usb_2_real_type, usb, PSY_TYPE_USB_2, USB_REAL_TYPE);
+QTI_CHARGER_TYPE_RO_SHOW(usb_2_real_type, usb, PSY_TYPE_USB_2, USB_REAL_TYPE); */
 
 static ssize_t restrict_cur_store(struct class *c, struct class_attribute *attr,
 				const char *buf, size_t count)
@@ -7557,6 +7572,7 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_usb_real_type.attr,
 	&class_attr_usb_typec_compliant.attr,
 	&class_attr_charging_enabled.attr,
+    &class_attr_fastcharge_enable.attr,
 	&class_attr_real_type.attr,
 	&class_attr_resistance_id.attr,
 	&class_attr_verify_digest.attr,
