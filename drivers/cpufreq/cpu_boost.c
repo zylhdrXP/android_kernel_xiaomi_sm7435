@@ -38,14 +38,10 @@ static inline bool boost_window_expired(unsigned long now, unsigned long exp)
 
 static inline s32 kick_khz_for_cpu(int cpu)
 {
-	if (cpu <= 1)
+	if (cpu <= 3)
 		return (s32)CONFIG_CPU_BOOST_KICK_KHZ_LITTLE;
-	else if (cpu <= 4)
-		return (s32)CONFIG_CPU_BOOST_KICK_KHZ_MID;
-	else if (cpu <= 6)
-		return (s32)CONFIG_CPU_BOOST_KICK_KHZ_BIG;
 	else
-		return (s32)CONFIG_CPU_BOOST_KICK_KHZ_PRIME;
+		return (s32)CONFIG_CPU_BOOST_KICK_KHZ_BIG;
 }
 
 static void cpu_boost_worker(struct work_struct *work)

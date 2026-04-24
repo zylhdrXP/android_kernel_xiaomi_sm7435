@@ -310,25 +310,13 @@ config CPU_BOOST_KICK_KHZ_LITTLE
     int "Preset min freq for LITTLE cluster (KHz)"
     default 0
     help
-      Minimum KHz for LITTLE (CPUs 0-1); 0 disables for this tier.
-
-config CPU_BOOST_KICK_KHZ_MID
-    int "Preset min freq for MID cluster (KHz)"
-    default 0
-    help
-      Minimum KHz for MID (CPUs 2-4); 0 disables for this tier.
+      Minimum KHz for LITTLE (CPUs 0-3); 0 disables for this tier.
 
 config CPU_BOOST_KICK_KHZ_BIG
     int "Preset min freq for BIG cluster (KHz)"
     default 0
     help
-      Minimum KHz for BIG (CPUs 5-6); 0 disables for this tier.
-
-config CPU_BOOST_KICK_KHZ_PRIME
-    int "Preset min freq for PRIME cluster (KHz)"
-    default 0
-    help
-      Minimum KHz for PRIME (CPU 7); 0 disables for this tier.
+      Minimum KHz for BIG (CPUs 4-7); 0 disables for this tier.
 endmenu
 
 if X86
