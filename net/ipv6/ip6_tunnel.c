@@ -878,15 +878,6 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
 	nh = skb_network_header(skb) - skb->head;
 
 	skb_reset_network_header(skb);
-
-	if (!skb_vlan_inet_prepare(skb, true)) {
-		tunnel->dev->stats.rx_length_errors++;
-		tunnel->dev->stats.rx_errors++;
-		goto drop;
-	}
-
-	/* Get the outer header. */
-	ipv6h = (struct ipv6hdr *)(skb->head + nh);
 	memset(skb->cb, 0, sizeof(struct inet6_skb_parm));
 
 	__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);

@@ -1371,8 +1371,10 @@ good_area:
 	mmap_read_unlock(mm);
 
 done:
-	if (likely(!(fault & VM_FAULT_ERROR)))
+	if (unlikely(fault & VM_FAULT_ERROR)) {
+		mm_fault_error(regs, hw_error_code, address, fault);
 		return;
+	}
 
 	if (fatal_signal_pending(current) && !(error_code & X86_PF_USER)) {
 		no_context(regs, error_code, address, 0, 0);

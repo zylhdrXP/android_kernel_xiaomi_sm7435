@@ -893,7 +893,7 @@ bool device_dma_supported(struct device *dev)
 	if (is_of_node(fwnode))
 		return true;
 
-	return acpi_dma_supported(to_acpi_device_node(fwnode));
+	return acpi_dma_supported(to_acpi_device_node((struct fwnode_handle *)fwnode));
 }
 EXPORT_SYMBOL_GPL(device_dma_supported);
 
@@ -908,7 +908,7 @@ enum dev_dma_attr device_get_dma_attr(struct device *dev)
 		else
 			attr = DEV_DMA_NON_COHERENT;
 	} else
-		attr = acpi_get_dma_attr(to_acpi_device_node(fwnode));
+		attr = acpi_get_dma_attr(to_acpi_device_node((struct fwnode_handle *)fwnode));
 
 	return attr;
 }
